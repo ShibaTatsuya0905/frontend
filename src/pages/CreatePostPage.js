@@ -18,6 +18,7 @@ function CreatePostPage() {
 
     const [categories, setCategories] = useState([]);
     const [tags, setTags] = useState([]);
+    const [tagSearchTerm, setTagSearchTerm] = useState(''); // State for tag search
 
     const [formLoading, setFormLoading] = useState(false);
     const [initialDataLoading, setInitialDataLoading] = useState(true);
@@ -40,7 +41,7 @@ function CreatePostPage() {
             const fetchAllInitialData = async () => {
                 try {
                     const promises = [getAllCategories(), getAllTags()];
-                    if (isEditMode && postId) { 
+                    if (isEditMode && postId) {
                         promises.push(getPostById(postId));
                     }
 
@@ -63,7 +64,7 @@ function CreatePostPage() {
                 } catch (error) {
                     console.error("Error fetching initial data for post form:", error);
                     setMessage("Lỗi tải dữ liệu cho form: " + (error.response?.data?.message || error.message));
-                    dataFetchedRef.current = false; // Cho phép thử lại nếu lỗi
+                    dataFetchedRef.current = false;
                 } finally {
                     setInitialDataLoading(false);
                 }
@@ -106,11 +107,8 @@ function CreatePostPage() {
                 savedPost = await createPost(postData);
             }
 
-            console.log("Response từ API sau khi lưu:", savedPost); // DEBUG LOG
-
             if (savedPost && ( (typeof savedPost.slug === 'string' && savedPost.slug.trim() !== '') || (typeof savedPost.id === 'number' && savedPost.id > 0) ) ) {
                 const navigateTo = savedPost.slug || savedPost.id;
-                console.log("Điều hướng đến:", `/posts/${navigateTo}`);
                 navigate(`/posts/${navigateTo}`, { replace: true });
             } else {
                 console.error("Dữ liệu slug hoặc id không hợp lệ từ API:", savedPost);
@@ -129,6 +127,14 @@ function CreatePostPage() {
             setFormLoading(false);
         }
     };
+
+    // Filter tags based on the search term
+    const filteredTags = tags.filter(tag =>
+        tag.name.toLowerCase().includes(tagSearchTerm.toLowerCase())
+    );
+
+    const tagSelectSize = Math.min(10, Math.max(5, filteredTags.length > 0 ? filteredTags.length : 1));
+
 
     if (!currentUser) return null;
     if (initialDataLoading) return <p className="loading-message">Đang tải dữ liệu form...</p>;
@@ -166,14 +172,42 @@ function CreatePostPage() {
                         ))}
                     </select>
                 </div>
+
+                {/* Tag Selection with Search */}
                 <div>
+                    <label htmlFor="tag-search">Tìm kiếm Thẻ:</label>
+                    <input
+                        type="text"
+                        id="tag-search"
+                        placeholder="Nhập tên thẻ để lọc..."
+                        value={tagSearchTerm}
+                        onChange={(e) => setTagSearchTerm(e.target.value)}
+                        style={{ marginBottom: '5px', width: 'calc(100% - 12px)', padding: '8px', boxSizing: 'border-box' }}
+                    />
                     <label htmlFor="tags">Thẻ (giữ Ctrl/Cmd để chọn nhiều):</label>
-                    <select id="tags" multiple value={selectedTagIds} onChange={handleTagChange} size={tags.length > 10 ? 10 : Math.max(5, tags.length)} style={{minHeight: '80px', maxHeight:'200px'}}>
-                        {tags.map(tag => (
-                            <option key={tag.id} value={tag.id.toString()}>{tag.name}</option>
-                        ))}
-                    </select>
+                    {tags.length === 0 && !initialDataLoading ? (
+                        <p style={{margin: '5px 0', color: '#777'}}>Không có thẻ nào để chọn.</p>
+                    ) : (
+                        <select
+                            id="tags"
+                            multiple
+                            value={selectedTagIds}
+                            onChange={handleTagChange}
+                            size={tagSelectSize}
+                            style={{minHeight: '80px', maxHeight:'200px', width: '100%'}}
+                        >
+                            {filteredTags.map(tag => (
+                                <option key={tag.id} value={tag.id.toString()}>{tag.name}</option>
+                            ))}
+                        </select>
+                    )}
+                    {tags.length > 0 && filteredTags.length === 0 && tagSearchTerm && (
+                        <p style={{fontSize: '0.9em', color: '#777', marginTop: '5px'}}>
+                            Không tìm thấy thẻ nào khớp với "{tagSearchTerm}".
+                        </p>
+                    )}
                 </div>
+
                 <div>
                     <label htmlFor="status">Trạng thái:</label>
                     <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
